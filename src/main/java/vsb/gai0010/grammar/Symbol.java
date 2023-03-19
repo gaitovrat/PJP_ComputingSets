@@ -20,4 +20,16 @@ public abstract class Symbol implements Comparable<Symbol> {
 	public String toString() {
 		return this.name;
 	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if ((obj instanceof Symbol) == false) {
+			return false;
+		}
+		
+		Symbol symbol = (Symbol)obj;
+		return  this.getName().equals(symbol.getName());
+	}
+	
+	
 }

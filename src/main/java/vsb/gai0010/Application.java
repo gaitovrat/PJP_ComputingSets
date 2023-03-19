@@ -50,5 +50,12 @@ public class Application {
         			.reduce("", (el1, el2) -> el1 + " " + el2);
         	System.out.printf("first[%s] = %s\n", entry.getKey(), value);
         }
+        
+        Map<Nonterminal,Set<Terminal>> follow = grammarOperations.follow();
+        for (Entry<Nonterminal, Set<Terminal>> entry : follow.entrySet()) {
+        	String value = entry.getValue().stream().map(el -> el.toString())
+        			.reduce("", (el1, el2) -> el1 + " " + el2);
+        	System.out.printf("follow[%s] = %s\n", entry.getKey().getName(), value);
+        }
 	}
 }
