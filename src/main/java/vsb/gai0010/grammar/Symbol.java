@@ -16,4 +16,8 @@ public abstract class Symbol implements Comparable<Symbol> {
         return name.compareTo(symbol.getName());
     }
 
+	@Override
+	public String toString() {
+		return this.name;
+	}
 }
