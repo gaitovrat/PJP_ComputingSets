@@ -131,7 +131,7 @@ public class GrammarOperations {
     	
     	nonterminals.push(nonterminal);
     	
-    	do {
+    	while (nonterminals.empty() == false) {
     		Nonterminal currentNonterminal = nonterminals.pop();
     		if (currentNonterminal.equals(this.grammar.getStartNonterminal()) == true) {
     			result.add(this.dollar);
@@ -166,7 +166,7 @@ public class GrammarOperations {
 	    			}
 	    		}
 	    	}
-    	} while (nonterminals.empty() == false);
+    	};
     	
     	return result;
     }
