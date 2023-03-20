@@ -1,10 +1,8 @@
 package vsb.gai0010;
 
-import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
-import java.net.URISyntaxException;
-import java.net.URL;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -18,18 +16,18 @@ import vsb.gai0010.grammar.Terminal;
 
 public class Application {
 	public static void main(String[] args) {
-		URL resource = Application.class.getClassLoader().getResource("input");
+		InputStream resource = Application.class.getClassLoader().getResourceAsStream("input");
         Grammar grammar;
         
         assert resource != null : "Resource not found.";
 
-        try (FileReader fileReader = new FileReader(new File(resource.toURI()))) {
+        try (InputStreamReader fileReader = new InputStreamReader(resource)) {
             GrammarReader inp = new GrammarReader(fileReader);
             grammar = inp.read();
         } catch (GrammarException e) {
             System.err.println("Error(" + e.getLineNumber() + ") " + e.getMessage());
             return;
-        } catch (IOException | URISyntaxException e) {
+        } catch (IOException e) {
             System.err.println("Error: " + e.getMessage());
             return;
         }
