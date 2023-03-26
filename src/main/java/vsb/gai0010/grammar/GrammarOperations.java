@@ -8,18 +8,33 @@ import java.util.Stack;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import vsb.gai0010.Table;
+
 public class GrammarOperations {
-	private Grammar grammar;	
-	private Set<Nonterminal> emptyNonterminals;
-	private Terminal empty;
-	private Terminal dollar;
+	private final Grammar grammar;	
+	private final Set<Nonterminal> emptyNonterminals;
+	private final Terminal empty;
+	private final Terminal dollar;
+	private final Table<Symbol, Boolean> firstTable;
+	private boolean isFirstTableFilled;
 
     public GrammarOperations(Grammar grammar) {
         this.grammar = grammar;
         this.empty = new Terminal("{e}");
         this.dollar = new Terminal("{$}");
+        this.firstTable = new Table<>(false);
+        this.emptyNonterminals = new TreeSet<>();
+        this.isFirstTableFilled = false;
         
         computeEmpty();
+        
+        for (Nonterminal nonterminal : grammar.getNonterminals()) {
+        	this.firstTable.addRow(nonterminal);
+        	this.firstTable.addColumn(nonterminal);
+        }
+        for (Terminal terminal : grammar.getTerminals()) {
+        	this.firstTable.addColumn(terminal);
+        }
     }
 
     public Set<Nonterminal> getEmptyNonterminals() {
@@ -27,9 +42,8 @@ public class GrammarOperations {
     }
 
     private void computeEmpty() {
-        emptyNonterminals = new TreeSet<Nonterminal>();
         List<Rule> rules = this.grammar.getRules();
-        boolean isEmpty = true;
+        boolean hasChanged = false;
         
         for (Rule rule : rules) {
         	List<Symbol> rhs = rule.getRHS();
@@ -44,81 +58,143 @@ public class GrammarOperations {
         	return;
         }
         
-        for (Rule rule : rules) {
-        	List<Symbol> rhs = rule.getRHS();
+        
+        do {
+        	hasChanged = false;
         	
-        	List<Symbol> terminals = rhs.stream().filter(el -> el instanceof Terminal).toList();
-        	if (terminals.isEmpty() == false) {
-        		continue;
-        	}
-        	
-        	for (Symbol symbol : rhs) {
-        		if (this.emptyNonterminals.contains(symbol) == false) {
-        			isEmpty = false;
-        			break;
-        		}
-        	}
-        	
-        	if (isEmpty == true) {
-        		this.emptyNonterminals.add(rule.getLHS());
-        	}
-        }
+	        for (Rule rule : rules) {
+	        	List<Symbol> rhs = rule.getRHS();
+	        	
+	        	List<Symbol> terminals = rhs.stream().filter(el -> el instanceof Terminal).toList();
+	        	if (terminals.isEmpty() == false) {
+	        		continue;
+	        	}
+	        	
+	        	for (Symbol symbol : rhs) {
+	        		if (this.emptyNonterminals.contains(symbol) && 
+	        				this.emptyNonterminals.contains(rule.getLHS()) == false) {
+	        			this.emptyNonterminals.add(rule.getLHS());
+	        			hasChanged = true;
+	        		}
+	        	}
+	        }
+        } while (hasChanged);
     }
     
-    public Set<Terminal> first(List<Symbol> symbols, boolean isEmptyNonterminal) {
-    	Stack<Symbol> stack = new Stack<>();
-		Set<Terminal> terminals = new TreeSet<>();
-		
-		if (symbols.isEmpty() == true) {
-			terminals.add(empty);
-			return terminals;
-		}
-		
-		if (symbols.get(0) instanceof Terminal) {
-			terminals.add((Terminal)symbols.get(0));
-			return terminals;
-		}
-		
-		for (Symbol symbol : symbols) {
-			stack.push(symbol);
-		}
-		
-		while (stack.empty() == false) {
-			Symbol symbol = stack.pop();
-			
-			if (symbol.getName().equals(empty.getName()) == true && isEmptyNonterminal) {
-				terminals.add(empty);
-				continue;
-			}
-			
-			if (symbol instanceof Terminal) {
-				terminals.add((Terminal)symbol);
-				continue;
-			}
-			
-			for (Rule nonterminalRule : ((Nonterminal)symbol).getRules()) {
-				try {
-					stack.push(nonterminalRule.getRHS().get(0));
-				} catch (IndexOutOfBoundsException e) {
-					if (isEmptyNonterminal == true) {
-						stack.push(empty);
-					}
-				}
-			}
-		}
-		
-		return terminals;
+    private void fillFirstTable() {
+    	if (this.isFirstTableFilled) {
+    		return;
+    	}
+    	
+    	boolean hasChanged = false;
+    	
+    	for (Rule rule : this.grammar.getRules()) {
+    		Nonterminal lhs = rule.getLHS();
+    		List<Symbol> rhs = rule.getRHS();
+    		
+    		if (rhs.isEmpty()) {
+    			continue;
+    		}
+    		
+    		if (rhs.get(0) instanceof Terminal) {
+    			this.firstTable.setCell(lhs, rhs.get(0), true);
+    			continue;
+    		}
+    		
+    		if (this.emptyNonterminals.contains(rhs.get(0)) == false) {
+    			this.firstTable.setCell(lhs, rhs.get(0), true);
+    			continue;
+    		}
+    		
+    		for (Symbol symbol : rhs) {
+    			this.firstTable.setCell(lhs, symbol, true);
+    		}
+    	}
+    	
+    	do {
+    		hasChanged = false;
+    		
+    		for (Symbol row : this.firstTable.getRowNames()) {
+    			for (Symbol col : this.firstTable.getColumnNames()) {
+    				boolean value = this.firstTable.getCell(row, col); 
+    				
+    				if (value == true && col instanceof Nonterminal) {
+    					for (Symbol colCopy : this.firstTable.getColumnNames()) {
+    						if (this.firstTable.getCell(row, colCopy) == false && 
+    								this.firstTable.getCell(col, colCopy) == true) {
+    							this.firstTable.setCell(row, colCopy, true);
+    							hasChanged = true;
+    						}
+    					}
+    				}
+    			}
+    		}
+    	} while(hasChanged);
     }
     
     public Map<String, Set<Terminal>> first() {
     	Map<String, Set<Terminal>> result = new TreeMap<>();
+
+    	this.fillFirstTable();
 
     	for (Rule rule : this.grammar.getRules()) {
     		String key = rule.getLHS().getName() + ":" + rule.getRHS()
 				.stream()
 				.map(el -> el.toString())
 				.reduce("", (el1, el2) -> el1 + el2);
-    		result.put(key, first(rule.getRHS(), this.emptyNonterminals.contains(rule.getLHS())));
+    		Set<Terminal> terminals = new TreeSet<>();
+
+    		List<Symbol> rhs = rule.getRHS();
+    		
+    		if (rhs.isEmpty()) {
+    			terminals.add(empty);
+    			result.put(key, terminals);
+    			continue;
+    		}
+    		
+    		if (rhs.get(0) instanceof Terminal) {
+    			terminals.add((Terminal) rhs.get(0));
+    			result.put(key, terminals);
+    			continue;
+    		}
+    		
+    		if (this.emptyNonterminals.contains(rhs.get(0)) == false) {
+    			Symbol row = rhs.get(0);
+    			List<Symbol> columns = this.firstTable.getColumnNames()
+    					.stream()
+    					.filter(el -> el instanceof Terminal)
+    					.toList();
+    			for (Symbol col : columns) {
+    				if (this.firstTable.getCell(row, col) == true) {
+    					terminals.add((Terminal) col);
+    				}
+    			}
+    			result.put(key, terminals);
+    			continue;
+    		}
+    		
+    		if (rhs.stream().filter(el -> this.emptyNonterminals.contains(el) == false).count() == 0) {
+    			terminals.add(empty);
+    		}
+    		
+    		for (Symbol symbol : rhs) {
+    			Symbol row = rhs.get(0);
+    			if (symbol instanceof Terminal) {
+    				terminals.add((Terminal) symbol);
+    				continue;
+    			}
+    			
+    			List<Symbol> columns = this.firstTable.getColumnNames()
+    					.stream()
+    					.filter(el -> el instanceof Terminal)
+    					.toList();
+    			for (Symbol col : columns) {
+    				if (this.firstTable.getCell(row, col) == true) {
+    					terminals.add((Terminal) col);
+    				}
+    			}
+    		}
+    		result.put(key, terminals);
     	}
     	
     	return result;
@@ -126,47 +202,6 @@ public class GrammarOperations {
     
     public Set<Terminal> follow(Nonterminal nonterminal) {
     	Set<Terminal> result = new TreeSet<>();
-    	Stack<Rule> rules = new Stack<>();
-    	Stack<Nonterminal> nonterminals = new Stack<>();
-    	
-    	nonterminals.push(nonterminal);
-    	
-    	while (nonterminals.empty() == false) {
-    		Nonterminal currentNonterminal = nonterminals.pop();
-    		if (currentNonterminal.equals(this.grammar.getStartNonterminal()) == true) {
-    			result.add(this.dollar);
-    		}
-    		
-	    	for (Rule rule : this.grammar.getRules()) {
-	    		List<Symbol> rhs = rule.getRHS();
-	    		
-	    		for (int i = 0; i < rhs.size(); i++) {
-	    			if ((rhs.get(i) instanceof Nonterminal) && rhs.get(i).equals(currentNonterminal)) {
-	    				rules.push(rule);
-	    			}
-	    		}
-	    	}
-	    	
-	    	
-	    	while (rules.empty() == false) {
-	    		Rule rule = rules.pop();
-	    		List<Symbol> rhs = rule.getRHS();
-	    		
-	    		for (int i = 0; i < rhs.size(); i++) {
-	    			if (rhs.get(i) instanceof Nonterminal) {
-	    				Set<Terminal> firstSet = first(rhs.subList(i + 1, rhs.size()), false);
-	    				firstSet.remove(empty);
-	    				result.addAll(firstSet);
-	    				
-	    				if (firstSet.isEmpty() == true && rule.getLHS().equals(nonterminal) == false) {
-    						nonterminals.push(rule.getLHS());
-	    				}
-	    				
-	    				break;
-	    			}
-	    		}
-	    	}
-    	};
     	
     	return result;
     }
